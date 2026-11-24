@@ -196,4 +196,4 @@ Para simular uma falha, paro o Horizonte e inicio uma nova transferência no Ang
 5. Usei Spring Security e JWT para proteger o acesso dos clientes e uma credencial interna para autenticar as chamadas ao Horizonte. Implementei a recuperação automática de operações pendentes.
 6. Vou preparar a demonstração, os diagramas finais, o relatório e a apresentação.
 
-Depois da primeira entrega, vou implementar por etapas as evoluções da secção 17 do PDF. Planeio adicionar Spring Cloud Gateway, Docker Compose, RabbitMQ, notificações e transferências por número de telemóvel. Também vou criar um serviço central fictício de interoperabilidade, separar os módulos em quatro microserviços, adicionar observabilidade e integrar outros bancos fictícios.
+Depois da primeira entrega, vou implementar por etapas as evoluções do projecto. Planeio adicionar Spring Cloud Gateway, Docker Compose, RabbitMQ, notificações e transferências por número de telemóvel. Também vou criar um serviço central fictício de interoperabilidade, separar os módulos em quatro microserviços, adicionar observabilidade e integrar outros bancos fictícios.
