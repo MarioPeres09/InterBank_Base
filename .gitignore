@@ -1,1 +1,5 @@
-/documentation/
+/documentation/*
+!/documentation/instalacao-windows.md
+!/documentation/architecture/
+/documentation/architecture/*
+!/documentation/architecture/arquitectura-inicial.md

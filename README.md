@@ -4,7 +4,7 @@ Estou a desenvolver o InterBank Angola para a disciplina de Sistemas Distribuíd
 
 ## Fase 1 — Preparação
 
-- Preparei o guia de instalação e o diagrama de arquitectura. Vou mantê-los na pasta local `documentation/` até à entrega final.
+- Preparei o [guia de instalação no Windows](documentation/instalacao-windows.md) e o [diagrama da arquitectura inicial](documentation/architecture/arquitectura-inicial.md).
 - Guardei em `database/` os scripts de preparação das bases de dados.
 
 ## Fase 2 — Backends dos bancos
