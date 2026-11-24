@@ -73,11 +73,42 @@ RETURNING id;
 
 Repete a consulta a `/api/accounts` para ver a conta. Para consultar directamente pelo ID, usa o valor devolvido pelo pgAdmin. Podes repetir o exemplo em `banco_horizonte` com o número `BH-000245` e consultar a conta na porta `8082`.
 
+## Fase 3 — Transferências entre os bancos
+
+Implementei transferências em kwanzas (`AOA`) do Banco Kwanza para o Banco Horizonte. A migração `V2` cria as tabelas de transferências e movimentos. Quando recebo um pedido no Kwanza, reservo o montante numa transacção local. Depois envio o pedido ao Horizonte por HTTP. Quando o Horizonte confirma o crédito, finalizo o débito no Kwanza. Uma recusa definitiva liberta a reserva. Se o resultado for incerto, a transferência continua `PENDING` e posso reenviar o pedido com a mesma chave.
+
+### Testar no Postman
+
+Para testar os endereços locais, uso a aplicação Postman para Windows ou selecciono o **Desktop Agent** no rodapé do Postman Web. [Guia dos agentes do Postman](https://learning.postman.com/docs/getting-started/basics/about-postman-agent/)
+
+1. Arranca os dois backends no CMD como na Fase 2. No pgAdmin, confirma que tens uma conta activa com saldo no Kwanza e outra activa no Horizonte. Podes usar os exemplos da Fase 2. Usa o **ID** da conta de origem e o **número** da conta de destino.
+2. No Postman, cria um pedido **POST** para `http://127.0.0.1:8081/api/transfers`. Em **Headers**, adiciona `Idempotency-Key` com um UUID. Podes usar `{{$guid}}` e depois guardar o ID devolvido, ou usar `e3722ec5-3117-4b1e-a824-79578bbdff31` no primeiro teste. Em **Body → raw → JSON**, envia:
+
+   ```json
+   {
+     "sourceAccountId": 1,
+     "destinationAccount": "BH-000245",
+     "amount": 25000.00
+   }
+   ```
+
+3. Confirma `200 OK` com `COMPLETED`. O saldo do Kwanza diminui e o do Horizonte aumenta pelo mesmo montante. Reenvia o mesmo pedido com o UUID devolvido no primeiro teste. Os saldos devem continuar iguais aos posteriores à transferência. Reutilizar esse UUID com um montante diferente devolve `409 Conflict`.
+4. Consulta `GET /api/transfers` ou `GET /api/transfers/{id}` no Kwanza e `GET /api/interbank/credits/{id}` no Horizonte para ver o recibo.
+
+| Cenário | Resultado |
+| --- | --- |
+| Conta de origem inexistente | `404` |
+| Saldo disponível insuficiente ou conta de origem inactiva | `422` |
+| Conta de destino inexistente ou inactiva | `200` com `FAILED` e reserva libertada |
+| Horizonte indisponível | `202` com `PENDING` e montante reservado. Depois de o Horizonte voltar, reenvia o mesmo corpo e UUID. |
+
+Abro o Swagger UI em [Kwanza](http://127.0.0.1:8081/swagger-ui/index.html) e [Horizonte](http://127.0.0.1:8082/swagger-ui/index.html). Cada banco publica o documento OpenAPI em `/v3/api-docs`, que posso importar no Postman. A autenticação entre bancos e a recuperação automática ficam para a fase de robustez.
+
 ## Plano de implementação
 
 1. Preparei o ambiente, o repositório, os diagramas e as bases de dados.
 2. Criei dois backends Spring Boot independentes, com entidades, repositórios e APIs de contas.
-3. Vou implementar transferências via REST com reserva de saldo e idempotência. Vou testar as APIs com Postman e documentá-las com OpenAPI.
+3. Implementei transferências via REST com reserva de saldo e idempotência. Documentei as APIs com OpenAPI e incluí um roteiro para experimentar no Postman.
 4. Vou construir a aplicação Angular para demonstrar a autenticação, a consulta de contas, a criação de transferências e a consulta dos seus estados e histórico.
 5. Vou usar Spring Security e JWT para proteger a aplicação e autenticar a comunicação entre os bancos. Também vou implementar a recuperação de operações pendentes e testar cenários de indisponibilidade, pedidos duplicados e operações simultâneas.
 6. Vou preparar a demonstração, os diagramas finais, o relatório e a apresentação.
