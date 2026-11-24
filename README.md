@@ -24,6 +24,8 @@ Estas definições aplicam-se ao CMD em que as executaste. Repete-as no segundo 
 
 ### Arrancar o Banco Kwanza
 
+Na versão actual do projecto, preparo também as variáveis da [Fase 5](#fase-5--segurança-e-recuperação) antes de arrancar cada banco.
+
 No CMD, a partir da raiz do repositório, executa os comandos abaixo. Substitui o valor de exemplo pela palavra-passe que definiste para `interbank_kwanza`.
 
 ```bat
@@ -81,6 +83,8 @@ Implementei transferências em kwanzas (`AOA`) do Banco Kwanza para o Banco Hori
 
 Para testar os endereços locais, uso a aplicação Postman para Windows ou selecciono o **Desktop Agent** no rodapé do Postman Web. [Guia dos agentes do Postman](https://learning.postman.com/docs/getting-started/basics/about-postman-agent/)
 
+Na versão actual, uso também o Bearer Token descrito na [Fase 5](#fase-5--segurança-e-recuperação).
+
 1. Arranca os dois backends no CMD como na Fase 2. No pgAdmin, confirma que tens uma conta activa com saldo no Kwanza e outra activa no Horizonte. Podes usar os exemplos da Fase 2. Usa o **ID** da conta de origem e o **número** da conta de destino.
 2. No Postman, cria um pedido **POST** para `http://127.0.0.1:8081/api/transfers`. Em **Headers**, adiciona `Idempotency-Key` com um UUID. Podes usar `{{$guid}}` e depois guardar o ID devolvido, ou usar `e3722ec5-3117-4b1e-a824-79578bbdff31` no primeiro teste. Em **Body → raw → JSON**, envia:
 
@@ -93,7 +97,7 @@ Para testar os endereços locais, uso a aplicação Postman para Windows ou sele
    ```
 
 3. Confirma `200 OK` com `COMPLETED`. O saldo do Kwanza diminui e o do Horizonte aumenta pelo mesmo montante. Reenvia o mesmo pedido com o UUID devolvido no primeiro teste. Os saldos devem continuar iguais aos posteriores à transferência. Reutilizar esse UUID com um montante diferente devolve `409 Conflict`.
-4. Consulta `GET /api/transfers` ou `GET /api/transfers/{id}` no Kwanza e `GET /api/interbank/credits/{id}` no Horizonte para ver o recibo.
+4. Consulta `GET /api/transfers` ou `GET /api/transfers/{id}` no Kwanza. O recibo do cliente está em `GET /api/transfers/{id}/receipt`. O Kwanza usa a API interna `GET /api/interbank/credits/{id}` do Horizonte para obter esse recibo.
 
 | Cenário | Resultado |
 | --- | --- |
@@ -102,7 +106,7 @@ Para testar os endereços locais, uso a aplicação Postman para Windows ou sele
 | Conta de destino inexistente ou inactiva | `200` com `FAILED` e reserva libertada |
 | Horizonte indisponível | `202` com `PENDING` e montante reservado. Depois de o Horizonte voltar, reenvia o mesmo corpo e UUID. |
 
-Abro o Swagger UI em [Kwanza](http://127.0.0.1:8081/swagger-ui/index.html) e [Horizonte](http://127.0.0.1:8082/swagger-ui/index.html). Cada banco publica o documento OpenAPI em `/v3/api-docs`, que posso importar no Postman. A autenticação entre bancos e a recuperação automática ficam para a fase de robustez.
+Abro o Swagger UI em [Kwanza](http://127.0.0.1:8081/swagger-ui/index.html) e [Horizonte](http://127.0.0.1:8082/swagger-ui/index.html). Cada banco publica o documento OpenAPI em `/v3/api-docs`, que posso importar no Postman.
 
 ## Fase 4 — Interface Angular
 
@@ -118,7 +122,7 @@ npm ci
 npm start
 ```
 
-Abro [InterBank Angola](http://127.0.0.1:4200/) no navegador. A instalação com `npm ci` usa as versões do `package-lock.json`. O comando `npm start` lança o servidor de desenvolvimento e encaminha os pedidos locais para o Kwanza (`8081`) e o Horizonte (`8082`) através de `src/proxy.conf.json`. Uso `npm run build` para verificar a compilação.
+Abro [InterBank Angola](http://127.0.0.1:4200/) no navegador. A instalação com `npm ci` usa as versões do `package-lock.json`. O comando `npm start` lança o servidor de desenvolvimento e encaminha os pedidos do Angular para o Kwanza (`8081`) através de `src/proxy.conf.json`. O Kwanza consulta os recibos junto do Horizonte e confirma antes se a transferência pertence ao cliente. Uso `npm run build` para verificar a compilação.
 
 ### Experimentar no navegador
 
@@ -126,7 +130,62 @@ Abro [InterBank Angola](http://127.0.0.1:4200/) no navegador. A instalação com
 2. Em **Histórico**, abro o recibo da transferência de teste para ver o crédito no Horizonte.
 3. Em **Transferências**, escolho a conta de origem e introduzo `BH-000245` e um montante dentro do saldo disponível. Cada novo envio confirmado altera os saldos da simulação. Se o pedido ficar pendente, uso **Retomar pedido**.
 
-Nesta fase, o painel está disponível para demonstração local. O início de sessão será ligado à autenticação dos backends na Fase 5.
+## Fase 5 — Segurança e recuperação
+
+Protegi as contas, transferências e recibos com início de sessão no Kwanza. O Angular envia um JWT de cliente válido por 30 minutos. O Kwanza limita as consultas e os débitos às contas do titular autenticado. Nas chamadas ao Horizonte, usa uma credencial interna própria via HTTP Basic. Os dois serviços escutam no endereço local para esta demonstração.
+
+### Preparar os terminais CMD
+
+Gero dois valores aleatórios executando duas vezes este comando. Guardo cada valor localmente para o usar nos terminais.
+
+```bat
+node -p "require('node:crypto').randomBytes(32).toString('hex')"
+```
+
+No **CMD do Kwanza**, defino as variáveis abaixo além de `KWANZA_DB_PASSWORD`. Uso um valor gerado para a assinatura JWT e o outro para a comunicação entre os bancos.
+
+```bat
+set "KWANZA_JWT_SECRET=VALOR_GERADO_PARA_O_JWT"
+set "INTERBANK_SHARED_PASSWORD=VALOR_GERADO_PARA_OS_BANCOS"
+```
+
+No **CMD do Horizonte**, defino o mesmo valor interno que usei no Kwanza, além de `HORIZONTE_DB_PASSWORD`.
+
+```bat
+set "INTERBANK_SHARED_PASSWORD=VALOR_GERADO_PARA_OS_BANCOS"
+```
+
+Depois de definir as variáveis, reinicio os dois servidores com `mvnw.cmd spring-boot:run`. Se mudei o proxy do Angular, reinicio também o `npm start`.
+
+### Activar o cliente fictício
+
+No pgAdmin, abro o **Query Tool de `banco_kwanza`** como administrador. Se criei a conta `BK-000123` com o email da Fase 2, defino uma palavra-passe de teste para esse cliente. Substituo o marcador antes de executar. O PostgreSQL guarda o hash BCrypt. Uso uma palavra-passe exclusiva da simulação.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+UPDATE public.users
+SET password_hash = crypt('PALAVRA_PASSE_DE_TESTE', gen_salt('bf', 12))
+WHERE email = 'cliente@exemplo.test' AND role = 'CUSTOMER'
+RETURNING id, email;
+```
+
+Se o `UPDATE` devolver uma linha, entro no Angular com esse email e a palavra-passe escolhida.
+
+### Verificar autorização e recuperação
+
+No Postman, faço `POST http://127.0.0.1:8081/api/auth/login` com **Body → raw → JSON**.
+
+```json
+{
+  "email": "cliente@exemplo.test",
+  "password": "PALAVRA_PASSE_DE_TESTE"
+}
+```
+
+Copio o campo `token` da resposta para **Authorization → Bearer Token** nos pedidos de contas e transferências. Para um recibo do cliente, uso `GET /api/transfers/{id}/receipt` no Kwanza. Sem token, essas rotas devolvem `401`. Uma conta ou transferência pertencente a outro cliente devolve `404`.
+
+Para simular uma falha, paro o Horizonte e inicio uma nova transferência no Angular. Ela deve ficar pendente com o montante reservado. Depois de voltar a arrancar o Horizonte com a credencial interna, o Kwanza reenvia automaticamente o pedido com a referência original. A verificação corre em ciclos de 15 segundos por omissão. Uso **Actualizar dados** para confirmar o estado e os saldos no Angular.
 
 ## Plano de implementação
 
@@ -134,7 +193,7 @@ Nesta fase, o painel está disponível para demonstração local. O início de s
 2. Criei dois backends Spring Boot independentes, com entidades, repositórios e APIs de contas.
 3. Implementei transferências via REST com reserva de saldo e idempotência. Documentei as APIs com OpenAPI e incluí um roteiro para experimentar no Postman.
 4. Criei a aplicação Angular para consulta de contas, transferências, estados, histórico e recibos. A integração do início de sessão acompanha a segurança da Fase 5.
-5. Vou usar Spring Security e JWT para proteger a aplicação e autenticar a comunicação entre os bancos. Também vou implementar a recuperação de operações pendentes e testar cenários de indisponibilidade, pedidos duplicados e operações simultâneas.
+5. Usei Spring Security e JWT para proteger o acesso dos clientes e uma credencial interna para autenticar as chamadas ao Horizonte. Implementei a recuperação automática de operações pendentes.
 6. Vou preparar a demonstração, os diagramas finais, o relatório e a apresentação.
 
 Depois da primeira entrega, vou implementar por etapas as evoluções da secção 17 do PDF. Planeio adicionar Spring Cloud Gateway, Docker Compose, RabbitMQ, notificações e transferências por número de telemóvel. Também vou criar um serviço central fictício de interoperabilidade, separar os módulos em quatro microserviços, adicionar observabilidade e integrar outros bancos fictícios.

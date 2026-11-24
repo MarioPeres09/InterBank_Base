@@ -16,7 +16,7 @@ export class BankApi {
   }
 
   receipt(id: string) {
-    return this.http.get<CreditReceipt>(`/api/interbank/credits/${encodeURIComponent(id)}`);
+    return this.http.get<CreditReceipt>(`/api/transfers/${encodeURIComponent(id)}/receipt`);
   }
 
   send(id: string, request: TransferRequest) {

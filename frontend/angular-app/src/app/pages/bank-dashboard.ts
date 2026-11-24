@@ -6,11 +6,11 @@ import { firstValueFrom } from 'rxjs';
 
 import { Account, CreditReceipt, Transfer, TransferRequest } from '../models/bank';
 import { BankApi, apiError } from '../services/bank-api';
+import { Session } from '../services/session';
 
 type View = 'overview' | 'accounts' | 'transfer' | 'history' | 'receipt';
 type Attempt = { id: string; request: TransferRequest };
 
-const storageKey = 'interbank.active-transfer';
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const accountPattern = /^[A-Za-z0-9-]{1,32}$/;
 const amountPattern = /^(?:0|[1-9]\d{0,16})(?:\.\d{1,2})?$/;
@@ -24,6 +24,8 @@ const money = new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2, maximum
 })
 export class BankDashboard implements OnInit {
   private readonly api = inject(BankApi);
+  protected readonly session = inject(Session);
+  private readonly storageKey = `interbank.active-transfer.${this.session.customer()?.customerId}`;
   protected readonly view = signal<View>('overview');
   protected readonly accounts = signal<Account[]>([]);
   protected readonly transfers = signal<Transfer[]>([]);
@@ -72,7 +74,15 @@ export class BankDashboard implements OnInit {
             this.source = this.activeAccounts()[0]?.id ?? null;
           }
         }).catch((error) => this.accountError.set(apiError(error))),
-        firstValueFrom(this.api.transfers()).then((transfers) => this.transfers.set(transfers))
+        firstValueFrom(this.api.transfers()).then((transfers) => {
+          this.transfers.set(transfers);
+          const attempt = this.attempt();
+          const updated = transfers.find((transfer) => transfer.id === attempt?.id);
+          if (updated && updated.status !== 'PENDING' && !this.sending()) {
+            this.result.set(updated);
+            this.saveAttempt(null);
+          }
+        })
           .catch((error) => this.historyError.set(apiError(error))),
       ]);
     } finally {
@@ -161,7 +171,7 @@ export class BankDashboard implements OnInit {
 
   private readAttempt(): Attempt | null {
     try {
-      const stored = sessionStorage.getItem(storageKey);
+      const stored = sessionStorage.getItem(this.storageKey);
       return stored ? JSON.parse(stored) as Attempt : null;
     } catch {
       return null;
@@ -171,8 +181,8 @@ export class BankDashboard implements OnInit {
   private saveAttempt(attempt: Attempt | null): void {
     this.attempt.set(attempt);
     try {
-      if (attempt) sessionStorage.setItem(storageKey, JSON.stringify(attempt));
-      else sessionStorage.removeItem(storageKey);
+      if (attempt) sessionStorage.setItem(this.storageKey, JSON.stringify(attempt));
+      else sessionStorage.removeItem(this.storageKey);
     } catch {
       // The current tab still retains the request if browser storage is unavailable.
     }

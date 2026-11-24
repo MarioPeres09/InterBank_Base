@@ -31,11 +31,15 @@
   <main id="conteudo">
     <header class="topbar">
       <span class="bank-label">{{ view() === 'receipt' ? 'Banco Horizonte' : 'Banco Kwanza' }}</span>
-      @if (view() !== 'receipt') {
-        <button class="button quiet" type="button" (click)="refresh()" [disabled]="loading()">
-          {{ loading() ? 'A actualizar…' : 'Actualizar dados' }}
-        </button>
-      }
+      <div class="topbar-actions">
+        @if (view() !== 'receipt') {
+          <button class="button quiet" type="button" (click)="refresh()" [disabled]="loading()">
+            {{ loading() ? 'A actualizar…' : 'Actualizar dados' }}
+          </button>
+        }
+        <span class="customer-name">{{ session.customer()?.customerName }}</span>
+        <button class="button quiet" type="button" (click)="session.logout()">Terminar sessão</button>
+      </div>
     </header>
 
     <div class="content">

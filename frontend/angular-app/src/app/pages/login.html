@@ -1,0 +1,23 @@
+<main class="login-page">
+  <section class="login-brand" aria-label="InterBank Angola">
+    <strong>InterBank Angola</strong>
+    <span>Banco Kwanza</span>
+    <p>Simulação académica</p>
+  </section>
+  <section class="login-content" aria-labelledby="login-title">
+    <div class="login-panel">
+      <h1 id="login-title">Iniciar sessão</h1>
+      <p>Acede às tuas contas e transferências no Banco Kwanza.</p>
+      <form (ngSubmit)="submit()" #loginForm="ngForm">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" email maxlength="254" autocomplete="username" [(ngModel)]="email" required>
+        <label for="login-password">Palavra-passe</label>
+        <input id="login-password" name="password" type="password" maxlength="72" autocomplete="current-password" [(ngModel)]="password" required>
+        @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+        <button type="submit" [disabled]="loginForm.invalid || submitting()">
+          {{ submitting() ? 'A iniciar sessão…' : 'Entrar' }}
+        </button>
+      </form>
+    </div>
+  </section>
+</main>

@@ -86,6 +86,8 @@ nav button[aria-current] { background: var(--active); color: var(--accent-dark);
   border-bottom: 1px solid var(--line);
 }
 .bank-label { color: var(--accent-dark); font-weight: 800; }
+.topbar-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: .45rem; }
+.customer-name { font-size: .875rem; }
 .content { max-width: 88rem; margin: 0 auto; padding: 2rem clamp(1rem, 4vw, 3.25rem) 3rem; }
 .page-heading, .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .page-heading { margin-bottom: 1.65rem; }
@@ -179,6 +181,7 @@ tbody tr:last-child td { border-bottom: 0; }
   nav button { padding: .45rem; font-size: .875rem; }
   .nav-label, .sidebar-foot { display: none; }
   .topbar { min-height: 3.3rem; }
+  .customer-name { display: none; }
   .page-heading { align-items: start; flex-wrap: wrap; }
   .account-grid { grid-template-columns: 1fr; }
 }
