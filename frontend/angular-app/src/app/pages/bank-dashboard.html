@@ -1,0 +1,224 @@
+<div class="layout" [class.horizonte]="view() === 'receipt'">
+  <aside class="sidebar">
+    <button class="brand" type="button" (click)="open('overview')">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>InterBank <strong>Angola</strong></span>
+    </button>
+
+    <nav aria-label="Navegação principal">
+      <span class="nav-label">Banco Kwanza</span>
+      <button type="button" [attr.aria-current]="view() === 'overview' ? 'page' : null" (click)="open('overview')">
+        <span aria-hidden="true" class="nav-icon">◫</span> Visão geral
+      </button>
+      <button type="button" [attr.aria-current]="view() === 'accounts' ? 'page' : null" (click)="open('accounts')">
+        <span aria-hidden="true" class="nav-icon">▤</span> Contas
+      </button>
+      <button type="button" [attr.aria-current]="view() === 'transfer' ? 'page' : null" (click)="open('transfer')">
+        <span aria-hidden="true" class="nav-icon">⇄</span> Transferências
+      </button>
+      <button type="button" [attr.aria-current]="view() === 'history' ? 'page' : null" (click)="open('history')">
+        <span aria-hidden="true" class="nav-icon">◷</span> Histórico
+      </button>
+      <span class="nav-label secondary">Banco Horizonte</span>
+      <button type="button" [attr.aria-current]="view() === 'receipt' ? 'page' : null" (click)="open('receipt')">
+        <span aria-hidden="true" class="nav-icon">▧</span> Recibos de crédito
+      </button>
+    </nav>
+
+    <div class="sidebar-foot"><span class="simulation-dot" aria-hidden="true"></span> Simulação académica</div>
+  </aside>
+
+  <main id="conteudo">
+    <header class="topbar">
+      <span class="bank-label">{{ view() === 'receipt' ? 'Banco Horizonte' : 'Banco Kwanza' }}</span>
+      @if (view() !== 'receipt') {
+        <button class="button quiet" type="button" (click)="refresh()" [disabled]="loading()">
+          {{ loading() ? 'A actualizar…' : 'Actualizar dados' }}
+        </button>
+      }
+    </header>
+
+    <div class="content">
+      @switch (view()) {
+        @case ('overview') {
+          <div class="page-heading">
+            <div>
+              <h1>Visão geral</h1>
+              <p>Consulta os teus saldos e acompanha as transferências.</p>
+            </div>
+            <button class="button primary" type="button" (click)="open('transfer')">Nova transferência</button>
+          </div>
+          @if (accountError()) { <p class="notice error" role="alert">{{ accountError() }}</p> }
+          @if (historyError()) { <p class="notice error" role="alert">Histórico: {{ historyError() }}</p> }
+          <div class="overview-grid">
+            <section class="balance-card" aria-label="Saldo disponível">
+              <span>Saldo disponível</span>
+              <strong>{{ accountError() || loading() ? '—' : format(totalAvailable()) }}</strong>
+              <div>{{ accountError() || loading() ? 'Contas do Banco Kwanza' : accounts().length + ' conta(s) no Banco Kwanza' }}</div>
+            </section>
+            <section class="stats" aria-label="Resumo das operações">
+              <div class="stat">
+                <span>Transferências enviadas</span>
+                <strong>{{ historyError() || loading() ? '—' : transfers().length }}</strong>
+              </div>
+              <div class="stat">
+                <span>Por confirmar</span>
+                <strong>{{ historyError() || loading() ? '—' : pendingCount() }}</strong>
+              </div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="section-heading">
+              <h2>Actividade recente</h2>
+              <button type="button" class="button quiet" (click)="open('history')">Ver histórico</button>
+            </div>
+            <ng-container *ngTemplateOutlet="transferRows; context: { $implicit: transfers().slice(0, 5) }"></ng-container>
+          </section>
+        }
+        @case ('accounts') {
+          <div class="page-heading"><div><h1>Contas</h1><p>Saldos e valores disponíveis no Banco Kwanza.</p></div></div>
+          @if (accountError()) { <p class="notice error" role="alert">{{ accountError() }}</p> }
+          <div class="account-grid">
+            @for (account of accounts(); track account.id) {
+              <article class="panel account-card">
+                <div class="section-heading">
+                  <h2>{{ account.accountNumber }}</h2>
+                  <span class="status" [class.positive]="account.status === 'ACTIVE'">
+                    {{ account.status === 'ACTIVE' ? 'Activa' : account.status === 'BLOCKED' ? 'Bloqueada' : 'Encerrada' }}
+                  </span>
+                </div>
+                <dl>
+                  <div><dt>Saldo</dt><dd>{{ format(account.balance) }}</dd></div>
+                  <div><dt>Disponível</dt><dd>{{ format(account.availableBalance) }}</dd></div>
+                </dl>
+              </article>
+            } @empty {
+              @if (!accountError()) {
+                <p class="empty">{{ loading() ? 'A carregar contas…' : 'Ainda não existem contas no Banco Kwanza.' }}</p>
+              }
+            }
+          </div>
+        }
+        @case ('transfer') {
+          <div class="page-heading"><div><h1>Nova transferência</h1><p>Envia kwanzas de uma conta Kwanza para o Banco Horizonte.</p></div></div>
+          <div class="form-layout">
+            <section class="panel form-panel">
+              <h2>Dados da transferência</h2>
+              @if (accountError()) { <p class="notice error" role="alert">{{ accountError() }}</p> }
+              <form (ngSubmit)="submit()">
+                <fieldset [disabled]="sending() || !!attempt()">
+                  <label for="source">Conta de origem</label>
+                  <select id="source" name="source" [(ngModel)]="source" required>
+                    <option [ngValue]="null" disabled>Selecciona uma conta activa</option>
+                    @for (account of activeAccounts(); track account.id) {
+                      <option [ngValue]="account.id">{{ account.accountNumber }} · {{ format(account.availableBalance) }}</option>
+                    }
+                  </select>
+                  <label for="destination">Número da conta de destino</label>
+                  <input id="destination" name="destination" [(ngModel)]="destination" maxlength="32" placeholder="BH-000245" required>
+                  <label for="amount">Montante em kwanzas</label>
+                  <input id="amount" name="amount" [(ngModel)]="amount" inputmode="decimal" maxlength="20" placeholder="0,00" required>
+                  <button class="button primary" type="submit" [disabled]="!activeAccounts().length">Enviar transferência</button>
+                </fieldset>
+              </form>
+            </section>
+            <section class="panel form-panel" aria-live="polite">
+              <h2>Estado do pedido</h2>
+              @if (sending()) { <p>A aguardar a resposta dos bancos…</p> }
+              @if (transferError()) { <p class="notice error" role="alert">{{ transferError() }}</p> }
+              @if (result(); as transfer) {
+                <ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: transfer.status }"></ng-container>
+                <dl>
+                  <div><dt>Destinatário</dt><dd>{{ transfer.destinationAccount }}</dd></div>
+                  <div><dt>Montante</dt><dd>{{ format(transfer.amount) }}</dd></div>
+                  <div><dt>Referência</dt><dd class="reference">{{ transfer.id }}</dd></div>
+                </dl>
+                @if (transfer.status === 'COMPLETED') {
+                  <button type="button" class="button quiet" (click)="viewReceipt(transfer)">Consultar recibo</button>
+                }
+                @if (transfer.status === 'FAILED') { <p>O Horizonte recusou o crédito. O valor reservado foi libertado.</p> }
+              }
+              @if (attempt(); as pending) {
+                <p>Usa a mesma referência para retomar este pedido.</p>
+                <p class="reference">{{ pending.id }}</p>
+                <button type="button" class="button quiet" [disabled]="sending()" (click)="retry()">Retomar pedido</button>
+              } @else if (!result() && !transferError()) {
+                <p>O estado e a referência aparecem aqui depois do envio.</p>
+              }
+            </section>
+          </div>
+        }
+        @case ('history') {
+          <div class="page-heading"><div><h1>Histórico</h1><p>Transferências iniciadas pelo Banco Kwanza.</p></div></div>
+          @if (historyError()) { <p class="notice error" role="alert">{{ historyError() }}</p> }
+          <section class="panel">
+            <ng-container *ngTemplateOutlet="transferRows; context: { $implicit: transfers() }"></ng-container>
+          </section>
+        }
+        @case ('receipt') {
+          <div class="page-heading"><div><h1>Recibos de crédito</h1><p>Consulta uma transferência recebida pelo Banco Horizonte.</p></div></div>
+          <div class="form-layout">
+            <section class="panel form-panel">
+              <h2>Consultar referência</h2>
+              <form (ngSubmit)="lookupReceipt()">
+                <label for="receipt-id">Referência da transferência</label>
+                <input id="receipt-id" name="receiptId" [(ngModel)]="receiptId" maxlength="36" required>
+                <button class="button primary" type="submit" [disabled]="receiptLoading()">
+                  {{ receiptLoading() ? 'A consultar…' : 'Consultar recibo' }}
+                </button>
+              </form>
+            </section>
+            <section class="panel form-panel" aria-live="polite">
+              <h2>Recibo do Horizonte</h2>
+              @if (receiptError()) { <p class="notice error" role="alert">{{ receiptError() }}</p> }
+              @if (receipt(); as item) {
+                <span class="status" [class.positive]="item.status === 'CREDITED'" [class.negative]="item.status === 'REJECTED'">
+                  {{ item.status === 'CREDITED' ? 'Creditado' : 'Recusado' }}
+                </span>
+                <dl>
+                  <div><dt>Montante</dt><dd>{{ format(item.amount) }}</dd></div>
+                  <div><dt>Conta de destino</dt><dd>{{ item.destinationAccount }}</dd></div>
+                  <div><dt>Data</dt><dd>{{ item.createdAt | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+                  <div><dt>Referência</dt><dd class="reference">{{ item.id }}</dd></div>
+                </dl>
+              } @else if (!receiptError() && !receiptLoading()) { <p>Introduz uma referência para consultar o recibo.</p> }
+            </section>
+          </div>
+        }
+      }
+    </div>
+  </main>
+</div>
+
+<ng-template #statusBadge let-status>
+  <span class="status" [class.positive]="status === 'COMPLETED'" [class.negative]="status === 'FAILED'" [class.pending]="status === 'PENDING'">
+    {{ status === 'COMPLETED' ? 'Concluída' : status === 'FAILED' ? 'Falhada' : 'Pendente' }}
+  </span>
+</ng-template>
+
+<ng-template #transferRows let-items>
+  @if (items.length) {
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Lista de transferências">
+      <table>
+        <thead><tr><th scope="col">Destino</th><th scope="col">Data</th><th scope="col">Montante</th><th scope="col">Estado</th><th scope="col">Recibo</th></tr></thead>
+        <tbody>
+          @for (transfer of items; track transfer.id) {
+            <tr>
+              <td><strong>{{ transfer.destinationAccount }}</strong><small>Banco Horizonte</small></td>
+              <td>{{ transfer.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ format(transfer.amount) }}</td>
+              <td><ng-container *ngTemplateOutlet="statusBadge; context: { $implicit: transfer.status }"></ng-container></td>
+              <td>
+                @if (transfer.status !== 'PENDING') {
+                  <button class="text-button" type="button" (click)="viewReceipt(transfer)">Consultar</button>
+                } @else { <span aria-label="Sem recibo">—</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (!historyError()) {
+    <p class="empty">{{ loading() ? 'A carregar transferências…' : 'Ainda não há transferências.' }}</p>
+  }
+</ng-template>

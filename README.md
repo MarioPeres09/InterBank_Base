@@ -104,12 +104,36 @@ Para testar os endereços locais, uso a aplicação Postman para Windows ou sele
 
 Abro o Swagger UI em [Kwanza](http://127.0.0.1:8081/swagger-ui/index.html) e [Horizonte](http://127.0.0.1:8082/swagger-ui/index.html). Cada banco publica o documento OpenAPI em `/v3/api-docs`, que posso importar no Postman. A autenticação entre bancos e a recuperação automática ficam para a fase de robustez.
 
+## Fase 4 — Interface Angular
+
+Criei o painel do Banco Kwanza para consultar saldos, iniciar transferências e acompanhar o histórico. No painel do Banco Horizonte, consulto o recibo pela referência da transferência. Se o envio ficar pendente ou a ligação cair, posso retomá-lo no mesmo separador. A interface conserva a chave original para evitar outro débito.
+
+Uso Angular 21 com o Node.js 24 já instalado. O Angular CLI é uma dependência do projecto. Abro um terceiro CMD no VS Code, com os dois bancos a correr conforme a Fase 2, e executo a partir da raiz:
+
+```bat
+node --version
+npm --version
+cd frontend\angular-app
+npm ci
+npm start
+```
+
+Abro [InterBank Angola](http://127.0.0.1:4200/) no navegador. A instalação com `npm ci` usa as versões do `package-lock.json`. O comando `npm start` lança o servidor de desenvolvimento e encaminha os pedidos locais para o Kwanza (`8081`) e o Horizonte (`8082`) através de `src/proxy.conf.json`. Uso `npm run build` para verificar a compilação.
+
+### Experimentar no navegador
+
+1. Em **Contas**, confirmo a conta de origem `BK-000123` e o saldo disponível.
+2. Em **Histórico**, abro o recibo da transferência de teste para ver o crédito no Horizonte.
+3. Em **Transferências**, escolho a conta de origem e introduzo `BH-000245` e um montante dentro do saldo disponível. Cada novo envio confirmado altera os saldos da simulação. Se o pedido ficar pendente, uso **Retomar pedido**.
+
+Nesta fase, o painel está disponível para demonstração local. O início de sessão será ligado à autenticação dos backends na Fase 5.
+
 ## Plano de implementação
 
 1. Preparei o ambiente, o repositório, os diagramas e as bases de dados.
 2. Criei dois backends Spring Boot independentes, com entidades, repositórios e APIs de contas.
 3. Implementei transferências via REST com reserva de saldo e idempotência. Documentei as APIs com OpenAPI e incluí um roteiro para experimentar no Postman.
-4. Vou construir a aplicação Angular para demonstrar a autenticação, a consulta de contas, a criação de transferências e a consulta dos seus estados e histórico.
+4. Criei a aplicação Angular para consulta de contas, transferências, estados, histórico e recibos. A integração do início de sessão acompanha a segurança da Fase 5.
 5. Vou usar Spring Security e JWT para proteger a aplicação e autenticar a comunicação entre os bancos. Também vou implementar a recuperação de operações pendentes e testar cenários de indisponibilidade, pedidos duplicados e operações simultâneas.
 6. Vou preparar a demonstração, os diagramas finais, o relatório e a apresentação.
 

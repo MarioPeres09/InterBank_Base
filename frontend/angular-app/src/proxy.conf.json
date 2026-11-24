@@ -1,0 +1,5 @@
+{
+  "/api/accounts/**": { "target": "http://127.0.0.1:8081" },
+  "/api/transfers/**": { "target": "http://127.0.0.1:8081" },
+  "/api/interbank/credits/**": { "target": "http://127.0.0.1:8082" }
+}
